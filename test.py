@@ -1,17 +1,16 @@
 # -*- coding: utf-8 -*-
 '''
-// Author: Jay Smelly.
+// AUTHOr: Jay Smelly.
 // Last modify: 2017-05-08 19:49:53.
 // File name: NeuralNetwork4ACM.py
 //
 // Description:
-    Deep Face Beautification paper reproduction
+    Deep fACE bEAUTIFICATION PAPER Reproduction
     using Tensorflow
 '''
 import tensorflow as tf
 import numpy as np
 
-# 添加层
 def add_layer(inputs, in_size, out_size, layer_name, activation_function=None, dropout=1):
     # add one more layer and return the output of this layer
     Weights = tf.Variable(tf.random_normal([in_size, out_size]))
@@ -35,7 +34,14 @@ def compute_accuracy(v_xs, v_ys):
     y_pre = sess.run(prediction, feed_dict={xs: v_xs})
     correct_prediction = tf.equal(tf.argmax(y_pre,1), tf.argmax(v_ys,1))
     accuracy = tf.reduce_mean(tf.cast(correct_prediction, tf.float32))
+    # print(correct_prediction.eval())
+    print(correct_prediction.get_shape())
     count = 0
+    for i,j in zip(v_ys, accuracy):
+        print(i, j)
+        count += 1
+        if count == 10:
+            break
     result = sess.run(accuracy, feed_dict={xs: v_xs, ys: v_ys})
     return result
 
@@ -74,6 +80,20 @@ def load_data(genre):
         ys_mat[line] = ys[line]
     return xs_mat, ys_mat, num_examples
 
+dropout = 1
+xs = tf.placeholder(tf.float32, [None, 136])
+ys = tf.placeholder(tf.float32, [None, 1])
+
+# 3.定义神经层：隐藏层和预测层
+# add hidden layer 输入值是 xs，在隐藏层有 800 个神经元   
+l1 = add_layer(xs, 136, 800, 'l1', activation_function=tf.nn.relu, dropout=dropout)
+l2 = add_layer(l1, 800, 800, 'l2', activation_function=tf.nn.relu, dropout=dropout)
+l3 = add_layer(l2, 800, 300, 'l3', activation_function=tf.nn.relu, dropout=dropout)
+# add output layer 输入值是隐藏层 l3，在预测层输出 3 个结果
+prediction = add_layer(l3, 300, 2, 'output', activation_function=None)
+
+init = tf.global_variables_initializer()
+
 def data_iterator(xs, ys, batch_size):
     """ A simple data iterator """
     batch_idx = 0
@@ -89,75 +109,10 @@ def data_iterator(xs, ys, batch_size):
             ys_batch = shuf_labels[batch_idx:batch_idx+batch_size]
             yield xs_batch, ys_batch
 
-# 1.训练的数据
-lr = 0.001
-dropout = 0.3
-Weights_decay = 0.1
-max_iteration = 20000
-batch_size = 100
-display_step = 100
-
-# Make up some real data 
-xs_mat, ys_mat, num_examples = load_data(genre = 'train')
-# 定义迭代器
-iter_ = data_iterator(xs_mat, ys_mat, batch_size)
-
-# 2.定义节点准备接收数据
-# define placeholder for inputs to network  
-xs = tf.placeholder(tf.float32, [None, 136])
-ys = tf.placeholder(tf.float32, [None, 1])
-
-# 3.定义神经层：隐藏层和预测层
-# add hidden layer 输入值是 xs，在隐藏层有 800 个神经元   
-l1 = add_layer(xs, 136, 800, 'l1', activation_function=tf.nn.relu, dropout=dropout)
-l2 = add_layer(l1, 800, 800, 'l2', activation_function=tf.nn.relu, dropout=dropout)
-l3 = add_layer(l2, 800, 300, 'l3', activation_function=tf.nn.relu, dropout=dropout)
-# add output layer 输入值是隐藏层 l3，在预测层输出 3 个结果
-prediction = add_layer(l3, 300, 2, 'output', activation_function=None)
-
-# 4.定义 loss 表达式
-# the error between prediciton and real data    
-loss = tf.reduce_mean(tf.square(ys - prediction))
-
-# 5.选择 optimizer 使 loss 达到最小                   
-# 这一行定义了用什么方式去减少loss，学习率是 0.001    
-optimizer = tf.train.GradientDescentOptimizer(lr).minimize(loss)
-
-# important step 对所有变量进行初始化
-init = tf.global_variables_initializer()
-
-# 迭代 20000 次学习，sess.run optimizer
 with tf.Session() as sess:
     sess.run(init)
-    # Training cycle
-    for epoch in range(max_iteration):
-        avg_cost = 0.
-        total_batch = int(num_examples/batch_size)
-        # Loop over all batches
-        for i in range(total_batch):
-            # get a batch of data
-            xs_batch, ys_batch = iter_.next()
-            # Run optimization op (backprop) and cost op (to get loss value)
-            _, c = sess.run([optimizer, loss], 
-                    feed_dict={xs: xs_batch,ys: ys_batch})
-            # print(xs_batch.shape)
-            # print(ys_batch.shape)
-            # Compute average loss
-            avg_cost += c / total_batch
-        # Display logs per epoch step
-        if epoch % display_step == 0:
-            print("Epoch:", '%04d' % (epoch+1), "cost=", \
-                "{:.9f}".format(avg_cost))
-    print("Optimization Finished!")
-    # '''
-
-    # 用 saver 将所有的 variable 保存到定义的路径
-    saver = tf.train.Saver()
-
-    # 用 saver 将所有的 variable 保存到定义的路径
-    save_path = saver.save(sess, "../models/deep_beauty_predictor_net.ckpt")
-    print("Save to path: ", save_path)
-
+    saver = tf.train.import_meta_graph('../models/deep_beauty_predictor_net.ckpt.meta', clear_devices=True)
+    saver.restore(sess, tf.train.latest_checkpoint('../models'))
     print('Computing accuracy in val set')
     v_xs_batch, v_ys_batch, _ = load_data(genre = 'val')
     print(compute_accuracy(v_xs_batch, v_ys_batch))
