@@ -57,7 +57,7 @@ def load_data(genre, batch_size=100):
     # filter broken data in datalist
     for filename, y in zip(filenames, labels):
         try:
-            print('../data/face_landmark_all/'+filename.replace('jpg','npy'))
+            # print('../data/face_landmark_all/'+filename.replace('jpg','npy'))
             x = np.load('../data/face_landmark_all/'+filename.replace('jpg','npy'))
             xs.append(x)
             ys.append(y)
@@ -120,6 +120,7 @@ init = tf.initialize_all_variables()
 with tf.Session() as sess:
     sess.run(init)
     # Training cycle
+    '''
     print
     print(ys_batch)
     print
@@ -139,7 +140,7 @@ with tf.Session() as sess:
             print("Epoch:", '%04d' % (epoch+1), "cost=", \
                 "{:.9f}".format(avg_cost))
     print("Optimization Finished!")
-    '''
+    # '''
 
     # 用 saver 将所有的 variable 保存到定义的路径
     saver = tf.train.Saver()
