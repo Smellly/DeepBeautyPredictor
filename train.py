@@ -15,19 +15,19 @@ import numpy as np
 def add_layer(inputs, in_size, out_size, layer_name, activation_function=None, dropout=1):
     # add one more layer and return the output of this layer
     Weights = tf.Variable(tf.random_normal([in_size, out_size]))
-    biases = tf.Variable(tf.zeros([1, out_size]) + 0.1, )
-    Wx_plus_b = tf.matmul(inputs, Weights) + biases
+    biases  = tf.Variable(tf.random_normal([out_size]))
+    Wx_plus_b = tf.add(tf.matmul(inputs, Weights), biases)
 
     # here to dropout
     # 在 Wx_plus_b 上drop掉一定比例
     # keep_prob 保持多少不被drop，在迭代时在 sess.run 中 feed
-    Wx_plus_b = tf.nn.dropout(Wx_plus_b, keep_prob=0.3)
+    # Wx_plus_b = tf.nn.dropout(Wx_plus_b, keep_prob=dropout)
 
     if activation_function is None:
         outputs = Wx_plus_b
     else:
-        outputs = activation_function(Wx_plus_b, )
-    tf.histogram_summary(layer_name + '/outputs', outputs)  
+        # outputs = activation_function(Wx_plus_b)
+        outputs = tf.nn.relu(Wx_plus_b)
     return outputs
 
 def compute_accuracy(v_xs, v_ys):
@@ -35,7 +35,6 @@ def compute_accuracy(v_xs, v_ys):
     y_pre = sess.run(prediction, feed_dict={xs: v_xs})
     correct_prediction = tf.equal(tf.argmax(y_pre,1), tf.argmax(v_ys,1))
     accuracy = tf.reduce_mean(tf.cast(correct_prediction, tf.float32))
-    count = 0
     result = sess.run(accuracy, feed_dict={xs: v_xs, ys: v_ys})
     return result
 
@@ -94,7 +93,7 @@ lr = 0.001
 dropout = 0.3
 Weights_decay = 0.1
 max_iteration = 20000
-batch_size = 100
+batch_size = 1
 display_step = 100
 
 # Make up some real data 
@@ -113,7 +112,7 @@ l1 = add_layer(xs, 136, 800, 'l1', activation_function=tf.nn.relu, dropout=dropo
 l2 = add_layer(l1, 800, 800, 'l2', activation_function=tf.nn.relu, dropout=dropout)
 l3 = add_layer(l2, 800, 300, 'l3', activation_function=tf.nn.relu, dropout=dropout)
 # add output layer 输入值是隐藏层 l3，在预测层输出 3 个结果
-prediction = add_layer(l3, 300, 2, 'output', activation_function=None)
+prediction = add_layer(l3, 300, 1, 'output', activation_function=None)
 
 # 4.定义 loss 表达式
 # the error between prediciton and real data    
@@ -123,6 +122,19 @@ loss = tf.reduce_mean(tf.square(ys - prediction))
 # 这一行定义了用什么方式去减少loss，学习率是 0.001    
 optimizer = tf.train.GradientDescentOptimizer(lr).minimize(loss)
 
+'''
+Weights = tf.Variable(tf.random_normal([136, 800]))
+biases = tf.Variable(tf.random_normal([800]))
+Wx_plus_b = tf.add(tf.matmul(xs, Weights), biases)
+layer_1_1 = tf.nn.relu(Wx_plus_b)
+
+def test_add_layer(xs,w,b,af=tf.nn.relu):
+    wx_plus_b = tf.add(tf.matmul(xs, w),b)
+    output = af(wx_plus_b)
+    return output
+
+layer_1_2 = test_add_layer(xs,Weights,biases)
+'''
 # important step 对所有变量进行初始化
 init = tf.global_variables_initializer()
 
@@ -138,11 +150,25 @@ with tf.Session() as sess:
             # get a batch of data
             xs_batch, ys_batch = iter_.next()
             # Run optimization op (backprop) and cost op (to get loss value)
+            # c = 0
             _, c = sess.run([optimizer, loss], 
                     feed_dict={xs: xs_batch,ys: ys_batch})
-            # print(xs_batch.shape)
-            # print(ys_batch.shape)
+            '''
+            l1_pre = sess.run(l1, feed_dict={xs: xs_batch})
+            print(len(l1_pre),  '*', len(l1_pre[0]))
+            print(l1_pre)
+            l1_pre_2 = sess.run(layer_1_1, feed_dict={xs: xs_batch})
+            print(l1_pre_2)
+            l1_pre_3 = sess.run(layer_1_2, feed_dict={xs: xs_batch})
+            print(l1_pre_3)
+            # l3_pre = sess.run(l3, feed_dict={xs: xs_batch})
+            '''
             # Compute average loss
+            y_pre = sess.run(prediction, feed_dict={xs: xs_batch})
+            print(y_pre)
+            print(ys_batch)
+            print(tf.reduce_mean(tf.square(ys_batch - y_pre)).eval())
+            print
             avg_cost += c / total_batch
         # Display logs per epoch step
         if epoch % display_step == 0:
