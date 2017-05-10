@@ -29,17 +29,20 @@ def load_data(genre):
     # filter broken data in datalist
     for filename, y in zip(filenames, labels):
         try:
-            # print('../data/face_landmark_all/'+filename.replace('jpg','npy'))
-            x = np.load('../data/face_landmark_all/'+filename.replace('jpg','npy'))
-            xs.append(np.reshape(x,x.shape[0]*x.shape[1]))
-            ys.append(y)
+            path = '../data/face_landmark_all/'+filename.replace('jpg','npy')
+            # print(path)
+            x = np.load(path)
+            xs.append(np.reshape(x, x.shape[0]*x.shape[1]))
+            print(path)
+            y = int(y)
+            ys.append(np.array([y, 1-y]))
         except:
             pass
     num_examples = len(xs)
     assert(num_examples > 0)
     print('num_examples:',num_examples)
     xs_mat = np.zeros((num_examples, len(xs[0])))
-    ys_mat = np.zeros((num_examples, 1))
+    ys_mat = np.zeros((num_examples, 2))
     for line in range(num_examples):
         xs_mat[line] = xs[line] 
         ys_mat[line] = ys[line]

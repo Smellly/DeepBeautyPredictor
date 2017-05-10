@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+from __future__ import print_function
 '''
 // Author: Jay Smelly.
 // Last modify: 2017-05-08 19:49:53.
@@ -17,7 +18,6 @@ Author: Aymeric Damien
 Project: https://github.com/aymericdamien/TensorFlow-Examples/
 '''
 
-from __future__ import print_function
 import tensorflow as tf
 from data import load_data, data_iterator
 
