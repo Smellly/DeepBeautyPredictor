@@ -8,27 +8,35 @@
     Deep Face Beautification paper reproduction
     using Tensorflow
 '''
+
+'''
+A Multilayer Perceptron implementation example using TensorFlow library.
+This example is using the MNIST database of handwritten digits
+(http://yann.lecun.com/exdb/mnist/)
+Author: Aymeric Damien
+Project: https://github.com/aymericdamien/TensorFlow-Examples/
+'''
+
+from __future__ import print_function
 import tensorflow as tf
-import numpy as np
+from data import load_data, data_iterator
 
-# 添加层
-def add_layer(inputs, in_size, out_size, layer_name, activation_function=None, dropout=1):
-    # add one more layer and return the output of this layer
-    Weights = tf.Variable(tf.random_normal([in_size, out_size]))
-    biases  = tf.Variable(tf.random_normal([out_size]))
-    Wx_plus_b = tf.add(tf.matmul(inputs, Weights), biases)
+# Parameters
+learning_rate = 0.001
+training_epochs = 20000
+batch_size = 100
+display_step = 1
 
-    # here to dropout
-    # 在 Wx_plus_b 上drop掉一定比例
-    # keep_prob 保持多少不被drop，在迭代时在 sess.run 中 feed
-    # Wx_plus_b = tf.nn.dropout(Wx_plus_b, keep_prob=dropout)
+# Network Parameters
+n_hidden_1 = 800 # 1st layer number of features
+n_hidden_2 = 800 # 2nd layer number of features
+n_hidden_3 = 300 # 3rd layer number of features
+n_input = 136 # MNIST data input (img shape: 28*28)
+n_classes = 2 # MNIST total classes (0-9 digits)
 
-    if activation_function is None:
-        outputs = Wx_plus_b
-    else:
-        # outputs = activation_function(Wx_plus_b)
-        outputs = tf.nn.relu(Wx_plus_b)
-    return outputs
+# tf Graph input
+x = tf.placeholder("float", [None, n_input])
+y = tf.placeholder("float", [None, n_classes])
 
 def compute_accuracy(v_xs, v_ys):
     global prediction
@@ -37,145 +45,71 @@ def compute_accuracy(v_xs, v_ys):
     accuracy = tf.reduce_mean(tf.cast(correct_prediction, tf.float32))
     result = sess.run(accuracy, feed_dict={xs: v_xs, ys: v_ys})
     return result
+    
+# Create model
+def multilayer_perceptron(x, weights, biases):
+    # Hidden layer with RELU activation
+    layer_1 = tf.add(tf.matmul(x, weights['h1']), biases['b1'])
+    layer_1 = tf.nn.relu(layer_1)
+    # Hidden layer with RELU activation
+    layer_2 = tf.add(tf.matmul(layer_1, weights['h2']), biases['b2'])
+    layer_2 = tf.nn.relu(layer_2)
+    # Hidden layer with RELU activation
+    layer_3 = tf.add(tf.matmul(layer_2, weights['h3']), biases['b3'])
+    layer_3 = tf.nn.relu(layer_3)
+    # Output layer with linear activation
+    out_layer = tf.matmul(layer_2, weights['out']) + biases['out']
+    return out_layer
 
-def load_data(genre):
-    if genre == 'train':
-        with open('../data/train.txt', 'r') as fin:
-            datalist = fin.readlines()
-    elif genre == 'val':
-        with open('../data/val.txt', 'r') as fin:
-            datalist = fin.readlines()
-    else:
-        print('genre is wrong\nEither \'train\' or \'val\'')
-        return
+# Store layers weight & bias
+weights = {
+    'h1': tf.Variable(tf.random_normal([n_input, n_hidden_1])),
+    'h2': tf.Variable(tf.random_normal([n_hidden_1, n_hidden_2])),
+    'h3': tf.Variable(tf.random_normal([n_hidden_2, n_hidden_3])),
+    'out': tf.Variable(tf.random_normal([n_hidden_2, n_classes]))
+}
+biases = {
+    'b1': tf.Variable(tf.random_normal([n_hidden_1])),
+    'b2': tf.Variable(tf.random_normal([n_hidden_2])),
+    'b3': tf.Variable(tf.random_normal([n_hidden_3])),
+    'out': tf.Variable(tf.random_normal([n_classes]))
+}
 
-    filenames = [i.split()[0] for i in datalist]
-    # filename_queue = tf.train.string_input_producer(filenames, shuffle=True)
-    labels = [1 if int(i.split()[1].strip())>3 else 0 for i in datalist]
-    xs = []
-    ys = []
-    # filter broken data in datalist
-    for filename, y in zip(filenames, labels):
-        try:
-            # print('../data/face_landmark_all/'+filename.replace('jpg','npy'))
-            x = np.load('../data/face_landmark_all/'+filename.replace('jpg','npy'))
-            xs.append(np.reshape(x,x.shape[0]*x.shape[1]))
-            ys.append(y)
-        except:
-            pass
-    num_examples = len(xs)
-    assert(num_examples > 0)
-    print('num_examples:',num_examples)
-    xs_mat = np.zeros((num_examples, len(xs[0])))
-    ys_mat = np.zeros((num_examples, 1))
-    for line in range(num_examples):
-        xs_mat[line] = xs[line]	
-        ys_mat[line] = ys[line]
-    return xs_mat, ys_mat, num_examples
+# Construct model
+pred = multilayer_perceptron(x, weights, biases)
 
-def data_iterator(xs, ys, batch_size):
-    """ A simple data iterator """
-    batch_idx = 0
-    while True:
-        # shuffle labels and features
-        idxs = np.arange(0, len(xs))
-        np.random.shuffle(idxs)
-        shuf_features = xs[idxs]
-        shuf_labels = ys[idxs]
-        for batch_idx in range(0, len(xs), batch_size):
-            xs_batch = shuf_features[batch_idx:batch_idx+batch_size] / float(batch_size-1)
-            xs_batch = xs_batch.astype("float32")
-            ys_batch = shuf_labels[batch_idx:batch_idx+batch_size]
-            yield xs_batch, ys_batch
+# Define loss and optimizer
+cost = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(logits=pred, labels=y))
+optimizer = tf.train.AdamOptimizer(learning_rate=learning_rate).minimize(cost)
 
-# 1.训练的数据
-lr = 0.001
-dropout = 0.3
-Weights_decay = 0.1
-max_iteration = 20000
-batch_size = 1
-display_step = 100
-
-# Make up some real data 
 xs_mat, ys_mat, num_examples = load_data(genre = 'train')
 # 定义迭代器
 iter_ = data_iterator(xs_mat, ys_mat, batch_size)
 
-# 2.定义节点准备接收数据
-# define placeholder for inputs to network  
-xs = tf.placeholder(tf.float32, [None, 136])
-ys = tf.placeholder(tf.float32, [None, 1])
-
-# 3.定义神经层：隐藏层和预测层
-# add hidden layer 输入值是 xs，在隐藏层有 800 个神经元   
-l1 = add_layer(xs, 136, 800, 'l1', activation_function=tf.nn.relu, dropout=dropout)
-l2 = add_layer(l1, 800, 800, 'l2', activation_function=tf.nn.relu, dropout=dropout)
-l3 = add_layer(l2, 800, 300, 'l3', activation_function=tf.nn.relu, dropout=dropout)
-# add output layer 输入值是隐藏层 l3，在预测层输出 3 个结果
-prediction = add_layer(l3, 300, 1, 'output', activation_function=None)
-
-# 4.定义 loss 表达式
-# the error between prediciton and real data    
-loss = tf.reduce_mean(tf.square(ys - prediction))
-
-# 5.选择 optimizer 使 loss 达到最小                   
-# 这一行定义了用什么方式去减少loss，学习率是 0.001    
-optimizer = tf.train.GradientDescentOptimizer(lr).minimize(loss)
-
-'''
-Weights = tf.Variable(tf.random_normal([136, 800]))
-biases = tf.Variable(tf.random_normal([800]))
-Wx_plus_b = tf.add(tf.matmul(xs, Weights), biases)
-layer_1_1 = tf.nn.relu(Wx_plus_b)
-
-def test_add_layer(xs,w,b,af=tf.nn.relu):
-    wx_plus_b = tf.add(tf.matmul(xs, w),b)
-    output = af(wx_plus_b)
-    return output
-
-layer_1_2 = test_add_layer(xs,Weights,biases)
-'''
-# important step 对所有变量进行初始化
+# Initializing the variables
 init = tf.global_variables_initializer()
 
-# 迭代 20000 次学习，sess.run optimizer
+# Launch the graph
 with tf.Session() as sess:
     sess.run(init)
+
     # Training cycle
-    for epoch in range(max_iteration):
+    for epoch in range(training_epochs):
         avg_cost = 0.
         total_batch = int(num_examples/batch_size)
         # Loop over all batches
         for i in range(total_batch):
-            # get a batch of data
-            xs_batch, ys_batch = iter_.next()
+            batch_x, batch_y = iter_.next()
             # Run optimization op (backprop) and cost op (to get loss value)
-            # c = 0
-            _, c = sess.run([optimizer, loss], 
-                    feed_dict={xs: xs_batch,ys: ys_batch})
-            '''
-            l1_pre = sess.run(l1, feed_dict={xs: xs_batch})
-            print(len(l1_pre),  '*', len(l1_pre[0]))
-            print(l1_pre)
-            l1_pre_2 = sess.run(layer_1_1, feed_dict={xs: xs_batch})
-            print(l1_pre_2)
-            l1_pre_3 = sess.run(layer_1_2, feed_dict={xs: xs_batch})
-            print(l1_pre_3)
-            # l3_pre = sess.run(l3, feed_dict={xs: xs_batch})
-            '''
+            _, c = sess.run([optimizer, cost], feed_dict={x: batch_x,
+                                                          y: batch_y})
             # Compute average loss
-            y_pre = sess.run(prediction, feed_dict={xs: xs_batch})
-            print(y_pre)
-            print(ys_batch)
-            print(tf.reduce_mean(tf.square(ys_batch - y_pre)).eval())
-            print
             avg_cost += c / total_batch
         # Display logs per epoch step
         if epoch % display_step == 0:
             print("Epoch:", '%04d' % (epoch+1), "cost=", \
                 "{:.9f}".format(avg_cost))
     print("Optimization Finished!")
-    # '''
 
     # 用 saver 将所有的 variable 保存到定义的路径
     saver = tf.train.Saver()
@@ -187,5 +121,3 @@ with tf.Session() as sess:
     print('Computing accuracy in val set')
     v_xs_batch, v_ys_batch, _ = load_data(genre = 'val')
     print(compute_accuracy(v_xs_batch, v_ys_batch))
-
-
